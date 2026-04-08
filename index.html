@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="theme-color" content="#0B0E11">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Binance Futures • Scalper Pro 15m WebSocket</title>
+    
+    <!-- TradingView Lightweight Charts -->
+    <script src="https://unpkg.com/lightweight-charts@4.0.1/dist/lightweight-charts.standalone.production.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header Binance -->
+    <div class="binance-header">
+        <div class="header-content">
+            <div class="logo-area">
+                <span class="binance-logo">Binance</span>
+                <span class="futures-badge">FUTURES</span>
+            </div>
+            
+            <div class="search-wrapper">
+                <div class="global-search">
+                    <span>🔍</span>
+                    <input type="text" id="globalSearch" placeholder="Buscar par (ex: BTCUSDT)" autocomplete="off">
+                </div>
+                <div class="suggestions-dropdown" id="suggestions"></div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="ws-status" id="wsStatus">
+                    <span class="ws-dot" id="wsDot"></span>
+                    <span id="wsText">Conectando...</span>
+                </div>
+                <div class="market-ticker" id="marketTicker">
+                    <div class="ticker-item"><span>BTC</span> <span class="positive">+2.4%</span></div>
+                    <div class="ticker-item"><span>ETH</span> <span class="positive">+1.8%</span></div>
+                    <div class="ticker-item"><span>BNB</span> <span class="negative">-0.5%</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Top 5 Market Cap -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-title">
+                    <span>🏆 Top 5 por Capitalização de Mercado</span>
+                </div>
+                <button class="refresh-btn" onclick="loadTopCap()">🔄 Atualizar</button>
+            </div>
+            <div class="top-cap-grid" id="topCapGrid">
+                <div class="loading-placeholder">
+                    <div class="loading-spinner"></div> Carregando...
+                </div>
+            </div>
+        </div>
+
+        <!-- Top 5 Trending (Melhores Sinais) -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-title">
+                    <span>🔥 Top 5 Melhores Sinais de Trading (15m)</span>
+                </div>
+                <button class="refresh-btn" onclick="loadTrendingSignals()">🔄 Atualizar Trending</button>
+            </div>
+            <div class="trending-table">
+                <div class="table-header">
+                    <div>Par</div>
+                    <div>Preço</div>
+                    <div>Sinal</div>
+                    <div>Força</div>
+                    <div>24h</div>
+                    <div></div>
+                </div>
+                <div id="trendingBody">
+                    <div class="loading-placeholder">
+                        <div class="loading-spinner"></div> Analisando mercado...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        ⚡ Binance Futures Scalper Pro • WebSocket em tempo real • Gráfico 15m • Sinais profissionais
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
