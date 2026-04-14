@@ -2,13 +2,13 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Nexus Web3 - Launcher</title>
     
-    <!-- Tailwind CSS para Estilização -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React e Babel (para rodar JSX no navegador) -->
+    <!-- React e Babel -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -25,20 +25,53 @@
             color: #f3f4f6;
             margin: 0;
             overflow-x: hidden;
+            /* Impede o bounce do scroll no mobile */
+            position: fixed;
+            width: 100%;
+            height: 100%;
         }
 
-        /* Animações Customizadas */
+        #root {
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .game-active #root {
+            overflow: hidden;
+        }
+
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
-        /* Scrollbar Customizada */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0b0e14; }
-        ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+        iframe {
+            background-color: #000;
+        }
+
+        /* Botão de fechar flutuante estilo mobile */
+        .close-game-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 300;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 10px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .close-game-btn:active {
+            transform: scale(0.9);
+            background: rgba(239, 68, 68, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -47,20 +80,9 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Ícones Lucide como componentes React simples
         const Icon = ({ name, size = 24, className = "" }) => {
-            const iconRef = useRef(null);
             useEffect(() => {
-                if (iconRef.current) {
-                    lucide.createIcons({
-                        attrs: {
-                            stroke: "currentColor",
-                            "stroke-width": 2,
-                            "stroke-linecap": "round",
-                            "stroke-linejoin": "round"
-                        }
-                    });
-                }
+                lucide.createIcons();
             }, [name]);
             return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
         };
@@ -75,7 +97,6 @@
                 thumbnail: 'https://api.dicebear.com/7.x/shapes/svg?seed=pixels&backgroundColor=fbbf24',
                 cover: 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?w=800&q=80',
                 url: 'https://play.pixels.xyz/',
-                players: '150k+'
             },
             {
                 id: 'parallel',
@@ -86,7 +107,6 @@
                 thumbnail: 'https://api.dicebear.com/7.x/shapes/svg?seed=parallel&backgroundColor=3b82f6',
                 cover: 'https://images.unsplash.com/photo-1635322966219-b75ed372eb01?w=800&q=80',
                 url: 'https://parallel.life/',
-                players: '45k'
             },
             {
                 id: 'ev-io',
@@ -97,7 +117,6 @@
                 thumbnail: 'https://api.dicebear.com/7.x/shapes/svg?seed=evio&backgroundColor=ef4444',
                 cover: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&q=80',
                 url: 'https://ev.io/',
-                players: '12k'
             }
         ];
 
@@ -107,6 +126,15 @@
             const [selectedGame, setSelectedGame] = useState(null);
             const [currentGameUrl, setCurrentGameUrl] = useState(null);
             const [isLoadingGame, setIsLoadingGame] = useState(false);
+
+            // Adiciona/Remove classe no body para controlar scroll
+            useEffect(() => {
+                if (currentGameUrl) {
+                    document.body.classList.add('game-active');
+                } else {
+                    document.body.classList.remove('game-active');
+                }
+            }, [currentGameUrl]);
 
             const addToLibrary = (game) => {
                 if (!library.find(g => g.id === game.id)) {
@@ -125,43 +153,37 @@
                 setIsLoadingGame(false);
             };
 
+            // INTERFACE DO JOGO (FULLSCREEN)
             if (currentGameUrl) {
                 return (
-                    <div className="fixed inset-0 bg-black z-[200] flex flex-col overflow-hidden fade-in">
-                        <div className="h-14 bg-[#161a23] border-b border-white/10 flex items-center justify-between px-4">
-                            <div className="flex items-center gap-3">
-                                <button onClick={closeGame} className="p-2 hover:bg-white/5 rounded-full text-gray-400">
-                                    <Icon name="chevron-left" />
-                                </button>
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-bold leading-tight">
-                                        {GAMES_DATABASE.find(g => g.url === currentGameUrl)?.title}
-                                    </span>
-                                    <span className="text-[10px] text-gray-500 uppercase font-mono">Nexus Host</span>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button className="p-2 text-gray-500 hover:text-white"><Icon name="refresh-cw" size={18}/></button>
-                                <button className="p-2 text-gray-500 hover:text-white"><Icon name="maximize-2" size={18}/></button>
-                                <button onClick={closeGame} className="ml-2 bg-red-500/10 text-red-500 p-2 rounded-lg"><Icon name="x" size={18}/></button>
-                            </div>
-                        </div>
-                        <div className="flex-1 relative bg-[#0b0e14]">
+                    <div className="fixed inset-0 bg-black z-[500] flex flex-col fade-in">
+                        {/* Botão de Fechar Flutuante */}
+                        <button onClick={closeGame} className="close-game-btn">
+                            <Icon name="x" size={24} />
+                        </button>
+
+                        <div className="flex-1 w-full h-full relative">
                             {isLoadingGame && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0b0e14] z-50">
-                                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                    <p className="mt-4 text-gray-400">Preparando ambiente...</p>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0b0e14] z-[501]">
+                                    <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                    <p className="mt-6 text-xl font-bold tracking-widest text-blue-500 animate-pulse uppercase">Lançando Game...</p>
                                 </div>
                             )}
-                            <iframe src={currentGameUrl} className="w-full h-full border-none" onLoad={() => setIsLoadingGame(false)} allow="gamepad; ethereum"></iframe>
+                            <iframe 
+                                src={currentGameUrl} 
+                                className="w-full h-full border-none" 
+                                onLoad={() => setIsLoadingGame(false)} 
+                                allow="gamepad; ethereum; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin"
+                            ></iframe>
                         </div>
                     </div>
                 );
             }
 
             return (
-                <div className="min-h-screen flex flex-col md:flex-row">
-                    {/* Sidebar */}
+                <div className="min-h-screen flex flex-col md:flex-row pb-20 md:pb-0">
+                    {/* Sidebar Desktop */}
                     <aside className="hidden md:flex fixed left-0 top-0 h-full w-64 bg-[#0f121a] border-r border-white/5 flex-col p-6 z-50">
                         <div className="flex items-center gap-3 mb-10">
                             <div className="bg-blue-600 p-2 rounded-xl text-white"><Icon name="gamepad-2" /></div>
@@ -174,21 +196,11 @@
                             <button onClick={() => setActiveTab('library')} className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all ${activeTab === 'library' ? 'bg-blue-600/10 text-blue-400' : 'text-gray-500'}`}>
                                 <Icon name="library" /> Biblioteca
                             </button>
-                            <button onClick={() => setActiveTab('wallet')} className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all ${activeTab === 'wallet' ? 'bg-blue-600/10 text-blue-400' : 'text-gray-500'}`}>
-                                <Icon name="wallet" /> Carteira
-                            </button>
                         </nav>
-                        <div className="bg-white/5 p-4 rounded-2xl border border-white/5 flex items-center gap-3 mt-auto">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600"></div>
-                            <div className="overflow-hidden">
-                                <p className="text-sm font-bold truncate">Usuário Nexus</p>
-                                <p className="text-[10px] text-gray-500">Online</p>
-                            </div>
-                        </div>
                     </aside>
 
                     {/* Content */}
-                    <main className="flex-1 md:pl-64 pb-24">
+                    <main className="flex-1 md:pl-64">
                         <header className="sticky top-0 z-40 bg-[#0b0e14]/80 backdrop-blur-md border-b border-white/5 p-4 md:px-8 flex justify-between items-center">
                             <div className="md:hidden flex items-center gap-2">
                                 <Icon name="gamepad-2" className="text-blue-500" />
@@ -196,29 +208,25 @@
                             </div>
                             <div className="hidden sm:block relative w-72">
                                 <Icon name="search" size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-                                <input className="w-full bg-white/5 border border-white/10 rounded-2xl py-2 pl-12 text-sm focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Explorar o metaverso..." />
+                                <input className="w-full bg-white/5 border border-white/10 rounded-2xl py-2 pl-12 text-sm outline-none" placeholder="Buscar jogos..." />
                             </div>
-                            <div className="flex items-center gap-4">
-                                <Icon name="bell" size={20} className="text-gray-400" />
-                                <div className="w-8 h-8 rounded-full bg-blue-500 md:hidden"></div>
-                            </div>
+                            <Icon name="bell" size={20} className="text-gray-400" />
                         </header>
 
-                        <div className="p-4 md:p-8 fade-in">
+                        <div className="p-4 md:p-8">
                             {activeTab === 'store' && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {GAMES_DATABASE.map(game => (
-                                        <div key={game.id} onClick={() => setSelectedGame(game)} className="group bg-[#161a23] rounded-3xl overflow-hidden border border-white/5 cursor-pointer hover:border-blue-500/50 transition-all">
+                                        <div key={game.id} onClick={() => setSelectedGame(game)} className="bg-[#161a23] rounded-3xl overflow-hidden border border-white/5 cursor-pointer hover:border-blue-500/50 transition-all">
                                             <div className="h-44 relative">
-                                                <img src={game.cover} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-[#161a23] to-transparent"></div>
-                                                <div className="absolute top-4 left-4 bg-blue-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter">{game.network}</div>
+                                                <img src={game.cover} className="w-full h-full object-cover" />
+                                                <div className="absolute top-4 left-4 bg-blue-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase">{game.network}</div>
                                             </div>
                                             <div className="p-6">
-                                                <h4 className="font-black text-xl mb-1">{game.title}</h4>
+                                                <h4 className="font-black text-xl">{game.title}</h4>
                                                 <p className="text-xs text-gray-500 mb-6">{game.category}</p>
-                                                <button onClick={(e) => { e.stopPropagation(); launchGame(game); }} className="w-full bg-white text-black py-3 rounded-xl font-bold hover:bg-blue-500 hover:text-white transition-all">
-                                                    JOGAR AGORA
+                                                <button onClick={(e) => { e.stopPropagation(); launchGame(game); }} className="w-full bg-white text-black py-3 rounded-xl font-bold">
+                                                    JOGAR
                                                 </button>
                                             </div>
                                         </div>
@@ -228,23 +236,17 @@
 
                             {activeTab === 'library' && (
                                 <div className="max-w-4xl mx-auto space-y-4">
-                                    <h3 className="text-2xl font-black mb-6">Minha Biblioteca</h3>
+                                    <h3 className="text-2xl font-black mb-6">Meus Jogos</h3>
                                     {library.length === 0 ? (
-                                        <div className="p-20 text-center text-gray-500 bg-white/5 rounded-3xl border border-dashed border-white/10">
-                                            <Icon name="plus-circle" size={48} className="mx-auto mb-4 opacity-20" />
-                                            <p>Seus jogos salvos aparecerão aqui.</p>
-                                        </div>
+                                        <div className="p-20 text-center text-gray-500 bg-white/5 rounded-3xl border border-dashed border-white/10">Nenhum jogo na biblioteca.</div>
                                     ) : (
                                         library.map(game => (
                                             <div key={game.id} className="flex items-center justify-between bg-[#161a23] p-4 rounded-2xl border border-white/5">
                                                 <div className="flex items-center gap-4">
                                                     <img src={game.thumbnail} className="w-14 h-14 rounded-xl" />
-                                                    <div>
-                                                        <h4 className="font-bold">{game.title}</h4>
-                                                        <p className="text-xs text-blue-500">{game.network}</p>
-                                                    </div>
+                                                    <h4 className="font-bold">{game.title}</h4>
                                                 </div>
-                                                <button onClick={() => launchGame(game)} className="px-8 py-3 bg-blue-600 rounded-xl font-bold text-sm">LANÇAR</button>
+                                                <button onClick={() => launchGame(game)} className="px-8 py-3 bg-blue-600 rounded-xl font-bold">LANÇAR</button>
                                             </div>
                                         ))
                                     )}
@@ -253,35 +255,24 @@
                         </div>
                     </main>
 
-                    {/* Mobile Navigation */}
-                    <nav className="md:hidden fixed bottom-0 w-full h-20 bg-[#0f121a]/90 backdrop-blur-xl border-t border-white/10 flex justify-around items-center z-50 px-6">
-                        <button onClick={() => setActiveTab('store')} className={activeTab === 'store' ? 'text-blue-500' : 'text-gray-500'}><Icon name="layout-grid" size={28} /></button>
-                        <button onClick={() => setActiveTab('library')} className={activeTab === 'library' ? 'text-blue-500' : 'text-gray-500'}><Icon name="library" size={28} /></button>
-                        <button onClick={() => setActiveTab('wallet')} className={activeTab === 'wallet' ? 'text-blue-500' : 'text-gray-500'}><Icon name="wallet" size={28} /></button>
+                    {/* Bottom Nav Mobile */}
+                    <nav className="md:hidden fixed bottom-0 w-full h-20 bg-[#0f121a] border-t border-white/10 flex justify-around items-center z-50">
+                        <button onClick={() => setActiveTab('store')} className={activeTab === 'store' ? 'text-blue-500' : 'text-gray-500'}><Icon name="layout-grid" size={24} /></button>
+                        <button onClick={() => setActiveTab('library')} className={activeTab === 'library' ? 'text-blue-500' : 'text-gray-500'}><Icon name="library" size={24} /></button>
                     </nav>
 
-                    {/* Modal */}
+                    {/* Modal Detalhes */}
                     {selectedGame && (
                         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-8 fade-in">
                             <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setSelectedGame(null)}></div>
-                            <div className="bg-[#1c222d] w-full max-w-2xl rounded-t-[3rem] md:rounded-[3rem] overflow-hidden relative border-t md:border border-white/10">
-                                <img src={selectedGame.cover} className="w-full h-64 object-cover" />
+                            <div className="bg-[#1c222d] w-full max-w-2xl rounded-t-[2rem] md:rounded-[2rem] overflow-hidden relative">
+                                <img src={selectedGame.cover} className="w-full h-48 object-cover" />
                                 <div className="p-8">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 className="text-3xl font-black">{selectedGame.title}</h3>
-                                            <span className="text-blue-500 text-xs font-bold uppercase tracking-widest">{selectedGame.network} Network</span>
-                                        </div>
-                                        <button onClick={() => setSelectedGame(null)} className="p-2 bg-white/5 rounded-full"><Icon name="x" size={20}/></button>
-                                    </div>
-                                    <p className="text-gray-400 leading-relaxed mb-8">{selectedGame.description}</p>
+                                    <h3 className="text-3xl font-black mb-2">{selectedGame.title}</h3>
+                                    <p className="text-gray-400 mb-8">{selectedGame.description}</p>
                                     <div className="flex gap-4">
-                                        <button onClick={() => launchGame(selectedGame)} className="flex-1 bg-blue-600 py-4 rounded-2xl font-black flex items-center justify-center gap-3 shadow-lg shadow-blue-600/20 active:scale-95 transition-transform">
-                                            <Icon name="gamepad-2" /> JOGAR AGORA
-                                        </button>
-                                        <button onClick={() => { addToLibrary(selectedGame); setSelectedGame(null); }} className="bg-white/5 px-6 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors">
-                                            <Icon name="plus-circle" />
-                                        </button>
+                                        <button onClick={() => launchGame(selectedGame)} className="flex-1 bg-blue-600 py-4 rounded-2xl font-black">LANÇAR JOGO</button>
+                                        <button onClick={() => { addToLibrary(selectedGame); setSelectedGame(null); }} className="bg-white/5 px-6 rounded-2xl border border-white/10"><Icon name="plus-circle" /></button>
                                     </div>
                                 </div>
                             </div>
