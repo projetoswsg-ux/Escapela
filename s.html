@@ -2,8 +2,8 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nexus Web3 - Launcher</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Nexus Web3 - Fullscreen Launcher</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,58 +19,70 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
         
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0b0e14;
-            color: #f3f4f6;
+        :root {
+            --safe-area-inset-top: env(safe-area-inset-top);
+        }
+
+        body, html {
             margin: 0;
-            overflow-x: hidden;
-            /* Impede o bounce do scroll no mobile */
-            position: fixed;
+            padding: 0;
             width: 100%;
             height: 100%;
+            background-color: #0b0e14;
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Evita scroll na aplicação base */
         }
 
         #root {
             height: 100%;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
-        .game-active #root {
+        /* Classe para quando o jogo estiver ativo */
+        .game-mode #root {
             overflow: hidden;
         }
 
-        .fade-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        iframe {
-            background-color: #000;
-        }
-
-        /* Botão de fechar flutuante estilo mobile */
-        .close-game-btn {
+        /* Botão de fechar flutuante ultra-discreto */
+        .exit-fullscreen-btn {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 300;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
+            top: calc(10px + var(--safe-area-inset-top));
+            right: 15px;
+            z-index: 9999;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(8px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
-            padding: 10px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s;
+            opacity: 0.5;
+            transition: opacity 0.3s;
         }
 
-        .close-game-btn:active {
-            transform: scale(0.9);
+        .exit-fullscreen-btn:hover, .exit-fullscreen-btn:active {
+            opacity: 1;
             background: rgba(239, 68, 68, 0.8);
+        }
+
+        /* Animação de entrada */
+        .animate-enter {
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Remove qualquer delay de toque no mobile */
+        * {
+            touch-action: manipulation;
         }
     </style>
 </head>
@@ -78,201 +90,175 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useCallback } = React;
 
         const Icon = ({ name, size = 24, className = "" }) => {
             useEffect(() => {
-                lucide.createIcons();
+                if (window.lucide) window.lucide.createIcons();
             }, [name]);
             return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
         };
 
         const GAMES_DATABASE = [
-            {
-                id: 'pixels',
-                title: 'Pixels',
-                description: 'Um mundo aberto de agricultura e exploração construído na Ronin Network.',
-                category: 'Social RPG',
-                network: 'Ronin',
-                thumbnail: 'https://api.dicebear.com/7.x/shapes/svg?seed=pixels&backgroundColor=fbbf24',
-                cover: 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?w=800&q=80',
-                url: 'https://play.pixels.xyz/',
-            },
-            {
-                id: 'parallel',
-                title: 'Parallel',
-                description: 'Jogo de cartas colecionáveis de ficção científica competitivo.',
-                category: 'TCG',
-                network: 'Base',
-                thumbnail: 'https://api.dicebear.com/7.x/shapes/svg?seed=parallel&backgroundColor=3b82f6',
-                cover: 'https://images.unsplash.com/photo-1635322966219-b75ed372eb01?w=800&q=80',
-                url: 'https://parallel.life/',
-            },
-            {
-                id: 'ev-io',
-                title: 'EV.IO',
-                description: 'FPS tático em primeira pessoa baseado em navegador com recompensas.',
-                category: 'FPS',
-                network: 'Solana',
-                thumbnail: 'https://api.dicebear.com/7.x/shapes/svg?seed=evio&backgroundColor=ef4444',
-                cover: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&q=80',
-                url: 'https://ev.io/',
-            }
+            { id: 'pixels', title: 'Pixels', network: 'Ronin', cover: 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?w=800&q=80', url: 'https://play.pixels.xyz/', category: 'Social RPG' },
+            { id: 'parallel', title: 'Parallel', network: 'Base', cover: 'https://images.unsplash.com/photo-1635322966219-b75ed372eb01?w=800&q=80', url: 'https://parallel.life/', category: 'TCG' },
+            { id: 'ev-io', title: 'EV.IO', network: 'Solana', cover: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&q=80', url: 'https://ev.io/', category: 'FPS' }
         ];
 
         const App = () => {
             const [activeTab, setActiveTab] = useState('store');
-            const [library, setLibrary] = useState([]);
             const [selectedGame, setSelectedGame] = useState(null);
             const [currentGameUrl, setCurrentGameUrl] = useState(null);
-            const [isLoadingGame, setIsLoadingGame] = useState(false);
+            const [isLoading, setIsLoading] = useState(false);
 
-            // Adiciona/Remove classe no body para controlar scroll
-            useEffect(() => {
-                if (currentGameUrl) {
-                    document.body.classList.add('game-active');
-                } else {
-                    document.body.classList.remove('game-active');
-                }
-            }, [currentGameUrl]);
+            // Função para solicitar Fullscreen Real
+            const requestFullscreen = () => {
+                const docElm = document.documentElement;
+                if (docElm.requestFullscreen) docElm.requestFullscreen();
+                else if (docElm.mozRequestFullScreen) docElm.mozRequestFullScreen();
+                else if (docElm.webkitRequestFullScreen) docElm.webkitRequestFullScreen();
+                else if (docElm.msRequestFullscreen) docElm.msRequestFullscreen();
+            };
 
-            const addToLibrary = (game) => {
-                if (!library.find(g => g.id === game.id)) {
-                    setLibrary([...library, game]);
-                }
+            // Função para sair do Fullscreen Real
+            const exitFullscreen = () => {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                else if (document.msExitFullscreen) document.msExitFullscreen();
             };
 
             const launchGame = (game) => {
-                setIsLoadingGame(true);
+                setIsLoading(true);
                 setCurrentGameUrl(game.url);
                 setSelectedGame(null);
+                document.body.classList.add('game-mode');
+                
+                // Dispara o Fullscreen API
+                requestFullscreen();
             };
 
             const closeGame = () => {
                 setCurrentGameUrl(null);
-                setIsLoadingGame(false);
+                setIsLoading(false);
+                document.body.classList.remove('game-mode');
+                
+                // Sai do Fullscreen
+                exitFullscreen();
             };
 
-            // INTERFACE DO JOGO (FULLSCREEN)
+            // Listener para quando o usuário sai do fullscreen via botão do sistema (ESC ou gesto)
+            useEffect(() => {
+                const handleFullscreenChange = () => {
+                    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                        // Se o usuário saiu do fullscreen mas o jogo ainda está "aberto" na lógica do React
+                        // opcionalmente podemos fechar o jogo ou manter apenas o iframe
+                    }
+                };
+                document.addEventListener('fullscreenchange', handleFullscreenChange);
+                document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+                return () => {
+                    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+                    document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+                };
+            }, []);
+
             if (currentGameUrl) {
                 return (
-                    <div className="fixed inset-0 bg-black z-[500] flex flex-col fade-in">
-                        {/* Botão de Fechar Flutuante */}
-                        <button onClick={closeGame} className="close-game-btn">
-                            <Icon name="x" size={24} />
+                    <div className="fixed inset-0 bg-black z-[9999] flex flex-col overflow-hidden">
+                        <button onClick={closeGame} className="exit-fullscreen-btn">
+                            <Icon name="x" size={20} />
                         </button>
-
-                        <div className="flex-1 w-full h-full relative">
-                            {isLoadingGame && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0b0e14] z-[501]">
-                                    <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                    <p className="mt-6 text-xl font-bold tracking-widest text-blue-500 animate-pulse uppercase">Lançando Game...</p>
+                        
+                        <div className="w-full h-full relative">
+                            {isLoading && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-10">
+                                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                    <p className="mt-4 text-xs font-bold tracking-[0.2em] text-blue-500 uppercase">Nexus Secure Loading</p>
                                 </div>
                             )}
                             <iframe 
                                 src={currentGameUrl} 
-                                className="w-full h-full border-none" 
-                                onLoad={() => setIsLoadingGame(false)} 
+                                className="w-full h-full border-none shadow-2xl"
+                                onLoad={() => setIsLoading(false)}
                                 allow="gamepad; ethereum; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin"
-                            ></iframe>
+                            />
                         </div>
                     </div>
                 );
             }
 
             return (
-                <div className="min-h-screen flex flex-col md:flex-row pb-20 md:pb-0">
-                    {/* Sidebar Desktop */}
-                    <aside className="hidden md:flex fixed left-0 top-0 h-full w-64 bg-[#0f121a] border-r border-white/5 flex-col p-6 z-50">
-                        <div className="flex items-center gap-3 mb-10">
-                            <div className="bg-blue-600 p-2 rounded-xl text-white"><Icon name="gamepad-2" /></div>
+                <div className="min-h-screen flex flex-col bg-[#0b0e14]">
+                    {/* Header Minimalista */}
+                    <header className="p-6 flex justify-between items-center bg-[#0f121a] border-b border-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-blue-600 p-2 rounded-lg"><Icon name="gamepad-2" size={20}/></div>
                             <h1 className="text-xl font-black tracking-tighter">NEXUS</h1>
                         </div>
-                        <nav className="flex-1 space-y-2">
-                            <button onClick={() => setActiveTab('store')} className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all ${activeTab === 'store' ? 'bg-blue-600/10 text-blue-400' : 'text-gray-500'}`}>
-                                <Icon name="layout-grid" /> Loja
-                            </button>
-                            <button onClick={() => setActiveTab('library')} className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all ${activeTab === 'library' ? 'bg-blue-600/10 text-blue-400' : 'text-gray-500'}`}>
-                                <Icon name="library" /> Biblioteca
-                            </button>
-                        </nav>
-                    </aside>
+                        <div className="flex items-center gap-4">
+                            <Icon name="search" size={20} className="text-gray-500"/>
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 border border-white/20"></div>
+                        </div>
+                    </header>
 
-                    {/* Content */}
-                    <main className="flex-1 md:pl-64">
-                        <header className="sticky top-0 z-40 bg-[#0b0e14]/80 backdrop-blur-md border-b border-white/5 p-4 md:px-8 flex justify-between items-center">
-                            <div className="md:hidden flex items-center gap-2">
-                                <Icon name="gamepad-2" className="text-blue-500" />
-                                <span className="font-black">NEXUS</span>
-                            </div>
-                            <div className="hidden sm:block relative w-72">
-                                <Icon name="search" size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-                                <input className="w-full bg-white/5 border border-white/10 rounded-2xl py-2 pl-12 text-sm outline-none" placeholder="Buscar jogos..." />
-                            </div>
-                            <Icon name="bell" size={20} className="text-gray-400" />
-                        </header>
-
-                        <div className="p-4 md:p-8">
-                            {activeTab === 'store' && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {GAMES_DATABASE.map(game => (
-                                        <div key={game.id} onClick={() => setSelectedGame(game)} className="bg-[#161a23] rounded-3xl overflow-hidden border border-white/5 cursor-pointer hover:border-blue-500/50 transition-all">
-                                            <div className="h-44 relative">
-                                                <img src={game.cover} className="w-full h-full object-cover" />
-                                                <div className="absolute top-4 left-4 bg-blue-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase">{game.network}</div>
-                                            </div>
-                                            <div className="p-6">
-                                                <h4 className="font-black text-xl">{game.title}</h4>
-                                                <p className="text-xs text-gray-500 mb-6">{game.category}</p>
-                                                <button onClick={(e) => { e.stopPropagation(); launchGame(game); }} className="w-full bg-white text-black py-3 rounded-xl font-bold">
-                                                    JOGAR
-                                                </button>
-                                            </div>
+                    {/* Feed de Jogos */}
+                    <main className="flex-1 p-4 md:p-8">
+                        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Destaques Web3</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {GAMES_DATABASE.map(game => (
+                                <div 
+                                    key={game.id} 
+                                    onClick={() => setSelectedGame(game)}
+                                    className="bg-[#161a23] rounded-[2.5rem] overflow-hidden border border-white/5 active:scale-[0.98] transition-all cursor-pointer group"
+                                >
+                                    <div className="h-48 relative">
+                                        <img src={game.cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                                        <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold border border-white/10 uppercase">
+                                            {game.network}
                                         </div>
-                                    ))}
+                                    </div>
+                                    <div className="p-6 flex justify-between items-center">
+                                        <div>
+                                            <h4 className="font-black text-lg">{game.title}</h4>
+                                            <p className="text-xs text-gray-500">{game.category}</p>
+                                        </div>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); launchGame(game); }}
+                                            className="bg-blue-600 hover:bg-blue-500 p-3 rounded-2xl shadow-lg shadow-blue-900/20"
+                                        >
+                                            <Icon name="play" size={20} className="fill-white"/>
+                                        </button>
+                                    </div>
                                 </div>
-                            )}
-
-                            {activeTab === 'library' && (
-                                <div className="max-w-4xl mx-auto space-y-4">
-                                    <h3 className="text-2xl font-black mb-6">Meus Jogos</h3>
-                                    {library.length === 0 ? (
-                                        <div className="p-20 text-center text-gray-500 bg-white/5 rounded-3xl border border-dashed border-white/10">Nenhum jogo na biblioteca.</div>
-                                    ) : (
-                                        library.map(game => (
-                                            <div key={game.id} className="flex items-center justify-between bg-[#161a23] p-4 rounded-2xl border border-white/5">
-                                                <div className="flex items-center gap-4">
-                                                    <img src={game.thumbnail} className="w-14 h-14 rounded-xl" />
-                                                    <h4 className="font-bold">{game.title}</h4>
-                                                </div>
-                                                <button onClick={() => launchGame(game)} className="px-8 py-3 bg-blue-600 rounded-xl font-bold">LANÇAR</button>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            )}
+                            ))}
                         </div>
                     </main>
 
-                    {/* Bottom Nav Mobile */}
-                    <nav className="md:hidden fixed bottom-0 w-full h-20 bg-[#0f121a] border-t border-white/10 flex justify-around items-center z-50">
-                        <button onClick={() => setActiveTab('store')} className={activeTab === 'store' ? 'text-blue-500' : 'text-gray-500'}><Icon name="layout-grid" size={24} /></button>
-                        <button onClick={() => setActiveTab('library')} className={activeTab === 'library' ? 'text-blue-500' : 'text-gray-500'}><Icon name="library" size={24} /></button>
-                    </nav>
-
-                    {/* Modal Detalhes */}
+                    {/* Modal Estilo iOS / Mobile App */}
                     {selectedGame && (
-                        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-8 fade-in">
-                            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={() => setSelectedGame(null)}></div>
-                            <div className="bg-[#1c222d] w-full max-w-2xl rounded-t-[2rem] md:rounded-[2rem] overflow-hidden relative">
-                                <img src={selectedGame.cover} className="w-full h-48 object-cover" />
-                                <div className="p-8">
+                        <div className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center p-0 md:p-4 animate-enter">
+                            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedGame(null)}></div>
+                            <div className="bg-[#1c222d] w-full max-w-xl rounded-t-[3rem] md:rounded-[3rem] overflow-hidden relative border-t border-white/10 shadow-2xl">
+                                <div className="h-64 relative">
+                                    <img src={selectedGame.cover} className="w-full h-full object-cover" />
+                                    <button onClick={() => setSelectedGame(null)} className="absolute top-6 right-6 bg-black/40 p-2 rounded-full backdrop-blur-md">
+                                        <Icon name="x" size={20}/>
+                                    </button>
+                                </div>
+                                <div className="p-8 text-center">
                                     <h3 className="text-3xl font-black mb-2">{selectedGame.title}</h3>
-                                    <p className="text-gray-400 mb-8">{selectedGame.description}</p>
-                                    <div className="flex gap-4">
-                                        <button onClick={() => launchGame(selectedGame)} className="flex-1 bg-blue-600 py-4 rounded-2xl font-black">LANÇAR JOGO</button>
-                                        <button onClick={() => { addToLibrary(selectedGame); setSelectedGame(null); }} className="bg-white/5 px-6 rounded-2xl border border-white/10"><Icon name="plus-circle" /></button>
+                                    <p className="text-blue-500 font-bold text-sm mb-6 uppercase tracking-widest">{selectedGame.network} Ecosystem</p>
+                                    
+                                    <div className="flex flex-col gap-3">
+                                        <button 
+                                            onClick={() => launchGame(selectedGame)}
+                                            className="w-full bg-white text-black py-5 rounded-[2rem] font-black text-lg shadow-xl active:scale-95 transition-transform"
+                                        >
+                                            LANÇAR EM FULLSCREEN
+                                        </button>
+                                        <p className="text-[10px] text-gray-500 uppercase mt-4">A barra de endereços será ocultada para melhor experiência</p>
                                     </div>
                                 </div>
                             </div>
