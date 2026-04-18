@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Crypto Shooter: Bitcoin & Friends</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
+        :root {
+            --bg-dark: #0b0e11;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            font-family: 'Fredoka One', cursive;
+            background-color: var(--bg-dark);
+            user-select: none;
+            touch-action: none;
+            color: white;
+        }
+
+        #game-wrapper { 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
+            /* Imagem de background adicionada conforme solicitado */
+            background-image: url('https://cdn.jsdelivr.net/gh/projetoswsg-ux/Escapela@main/WhatsApp%20Image%202026-04-18%20at%2011.03.47.jpeg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        
+        canvas { 
+            display: block; 
+            width: 100%; 
+            height: 100%; 
+        }
+
+        .overlay-screen { 
+            position: absolute; 
+            inset: 0; 
+            background: rgba(11, 14, 17, 0.95); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 1000; 
+            backdrop-filter: blur(8px); 
+            text-align: center;
+        }
+        .hidden { display: none !important; }
+
+        #map-screen { 
+            background: linear-gradient(to bottom, #1e2329, #0b0e11); 
+            overflow-y: auto; 
+            padding: 40px 0; 
+        }
+        .levels-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 20px; 
+            padding: 20px; 
+            max-width: 400px; 
+        }
+        
+        .level-node {
+            width: 70px; height: 70px; border-radius: 18px; border: 2px solid #2b2f36;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; color: #848e9c; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            transition: all 0.2s;
+            background: #1e2329;
+        }
+        .level-node:active { transform: scale(0.9); }
+        .level-node.unlocked { border-color: #f0b90b; color: #f0b90b; background: rgba(240, 185, 11, 0.1); }
+        .level-node.completed { background: #0ecb81; border-color: #0ecb81; color: white; }
+        .level-node.locked { opacity: 0.3; cursor: not-allowed; }
+
+        .btn-crypto { 
+            background: #f0b90b; 
+            color: #0b0e11; padding: 14px 30px; border-radius: 12px; 
+            font-weight: bold; cursor: pointer; font-size: 1.1rem;
+            box-shadow: 0 4px 15px rgba(240, 185, 11, 0.3);
+            transition: transform 0.2s;
+            width: 220px;
+        }
+        .btn-crypto:active { transform: scale(0.95); }
+
+        .btn-secondary {
+            background: #2b2f36;
+            color: #eaecef;
+            padding: 14px 30px; border-radius: 12px;
+            font-weight: bold; cursor: pointer; font-size: 1.1rem;
+            border: 1px solid #474d57;
+            transition: all 0.2s;
+            width: 220px;
+        }
+        .btn-secondary:active { transform: scale(0.95); }
+        
+        .header-ui { 
+            position: absolute; 
+            top: 15px; 
+            width: 100%; 
+            padding: 0 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            z-index: 100; 
+            pointer-events: none; 
+        }
+        .ui-badge { 
+            background: rgba(30, 35, 41, 0.8); 
+            padding: 8px 16px; 
+            border-radius: 10px; 
+            border: 1px solid #474d57; 
+            pointer-events: auto;
+            color: #eaecef;
+            font-size: 0.9rem;
+        }
+
+        .swap-control { 
+            position: absolute; right: 25px; bottom: 35px; 
+            width: 85px; height: 85px; background: #1e2329; 
+            border-radius: 20px; border: 2px solid #474d57; 
+            display: flex; flex-direction: column; align-items: center; 
+            justify-content: center; z-index: 50; cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+        }
+
+        #next-crypto-img { width: 45px; height: 45px; object-fit: contain; }
+
+        .reverse-icon {
+            position: absolute; top: -10px; right: -10px;
+            background: #f0b90b; width: 28px; height: 28px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        }
+
+        #loading-screen {
+            position: absolute; inset: 0; background: #0b0e11;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading-screen">
+    <div class="w-16 h-16 border-4 border-t-[#f0b90b] border-gray-700 rounded-full animate-spin mb-6"></div>
+    <p class="text-[#f0b90b] tracking-widest text-sm">SINCRONIZANDO NODOS...</p>
+</div>
+
+<div id="game-wrapper">
+    <div class="header-ui">
+        <div class="ui-badge">NÍVEL: <span id="ui-current-lvl">1</span></div>
+        <div class="ui-badge">SCORE: <span id="ui-score">0</span></div>
+    </div>
+
+    <div id="map-screen" class="overlay-screen hidden">
+        <h1 class="text-[#f0b90b] text-4xl mb-8">Crypto Journey</h1>
+        <div class="levels-grid" id="levels-grid"></div>
+        <button onclick="resetProgress()" class="mt-12 text-gray-500 text-xs hover:text-gray-300">LIMPAR PROGRESSO</button>
+    </div>
+
+    <div id="win-screen" class="overlay-screen hidden">
+        <div class="text-7xl mb-4">🚀</div>
+        <h2 class="text-3xl text-[#0ecb81] mb-8">BULL MARKET!</h2>
+        <div class="flex flex-col gap-4">
+            <button id="next-lvl-btn" onclick="nextLevel()" class="btn-crypto">PRÓXIMA FASE</button>
+            <button onclick="backToMap()" class="btn-secondary">VER MAPA</button>
+        </div>
+    </div>
+
+    <div id="lose-screen" class="overlay-screen hidden">
+        <div class="text-7xl mb-4">📉</div>
+        <h2 class="text-3xl text-[#f6465d] mb-8">RECUO DO MERCADO</h2>
+        <button onclick="retryLevel()" class="btn-crypto">TENTAR NOVAMENTE</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="swap-btn" class="swap-control" onclick="swapBubbles()">
+        <div class="reverse-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0b0e11" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21l-4-4 4-4"/><path d="M3 17h18"/><path d="M17 3l4 4-4 4"/><path d="M21 7H3"/></svg>
+        </div>
+        <img id="next-crypto-img" src="" alt="">
+        <span class="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-tighter">Próxima</span>
+    </div>
+</div>
+
+<script>
+    const AudioEngine = (() => {
+        let ctx = null;
+        const init = () => { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); };
+        const play = (f, t, d, v=0.08) => {
+            if (!ctx || ctx.state === 'suspended') return;
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.type = t; o.frequency.setValueAtTime(f, ctx.currentTime);
+            g.gain.setValueAtTime(v, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + d);
+            o.connect(g); g.connect(ctx.destination);
+            o.start(); o.stop(ctx.currentTime + d);
+        };
+        return { 
+            init, 
+            shoot: () => play(400, 'sine', 0.1, 0.05),
+            match: () => play(1200 + Math.random()*400, 'sine', 0.05, 0.12), 
+            pop: () => play(1400 + Math.random()*300, 'sine', 0.04, 0.08),  
+            impact: () => play(200, 'sine', 0.05, 0.03),
+            win: () => play(700, 'triangle', 0.4, 0.1),
+            lose: () => play(150, 'sawtooth', 0.6, 0.1),
+            swap: () => play(800, 'sine', 0.1, 0.05)
+        };
+    })();
+
+    const CRYPTO_CONFIG = [
+        { id: 'bitcoin', symbol: 'BTC', color: '#f7931a' },
+        { id: 'dogecoin', symbol: 'DOGE', color: '#c2a633' },
+        { id: 'cardano', symbol: 'ADA', color: '#2550c0' },
+        { id: 'litecoin', symbol: 'LTC', color: '#345d9d' }
+    ];
+
+    const imageCache = {};
+
+    async function loadLogos() {
+        try {
+            const ids = CRYPTO_CONFIG.map(c => c.id).join(',');
+            const response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}`);
+            const data = await response.json();
+            const loaders = data.map(coin => {
+                return new Promise(resolve => {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    img.onload = () => {
+                        imageCache[coin.symbol.toUpperCase()] = img;
+                        resolve();
+                    };
+                    img.src = coin.image;
+                });
+            });
+            await Promise.all(loaders);
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('map-screen').classList.remove('hidden');
+            renderMap();
+        } catch (e) {
+            console.error(e);
+            document.getElementById('loading-screen').innerText = "Erro de conexão.";
+        }
+    }
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const LOGICAL_WIDTH = 400;
+    const LOGICAL_HEIGHT = 700;
+    const RADIUS = 22;
+    const COLS = 8;
+    const ROWS = 16;
+
+    let unlockedLevel = parseInt(localStorage.getItem('crypto_shooter_lvl')) || 1;
+    let currentLevel = 1;
+    let gameState = 'MAP';
+    let score = 0;
+    let grid = [];
+    let fallingBubbles = [];
+    let currentBubble = null;
+    let nextSymbol = '';
+    let rawAimAngle = -Math.PI/2;
+    let smoothAimAngle = -Math.PI/2;
+    let isDragging = false;
+    let isShooting = false;
+
+    function resize() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Bubble {
+        constructor(x, y, symbol) {
+            this.x = x; this.y = y; this.type = symbol;
+            this.vx = 0;
+            this.vy = 0;
+            this.config = CRYPTO_CONFIG.find(c => c.symbol === symbol) || CRYPTO_CONFIG[0];
+        }
+
+        draw(scX, scY) {
+            const dX = this.x * scX;
+            const dY = this.y * scY;
+            const r = (RADIUS - 1) * scX;
+            const img = imageCache[this.type];
+
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.4)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetY = 4;
+
+            const grad = ctx.createRadialGradient(
+                dX - r * 0.3, dY - r * 0.3, r * 0.1, 
+                dX, dY, r
+            );
+            grad.addColorStop(0, this.config.color);
+            grad.addColorStop(1, this.darkenColor(this.config.color, 40));
+            
+            ctx.beginPath();
+            ctx.arc(dX, dY, r, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+            
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+
+            const highlight = ctx.createRadialGradient(
+                dX - r * 0.35, dY - r * 0.35, 0,
+                dX - r * 0.35, dY - r * 0.35, r * 0.6
+            );
+            highlight.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+            highlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            
+            ctx.beginPath();
+            ctx.arc(dX, dY, r, 0, Math.PI * 2);
+            ctx.fillStyle = highlight;
+            ctx.fill();
+
+            if (img) {
+                const sz = r * 1.2;
+                ctx.globalAlpha = 0.9;
+                ctx.drawImage(img, dX - sz/2, dY - sz/2, sz, sz);
+            }
+
+            ctx.beginPath();
+            ctx.arc(dX, dY, r - 1, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        darkenColor(hex, percent) {
+            const num = parseInt(hex.replace("#",""), 16),
+            amt = Math.round(2.55 * percent),
+            R = (num >> 16) - amt,
+            G = (num >> 8 & 0x00FF) - amt,
+            B = (num & 0x0000FF) - amt;
+            return "#" + (0x1000000 + (R<255?R<0?0:R:255)*0x10000 + (G<255?G<0?0:G:255)*0x100 + (B<255?B<0?0:B:255)).toString(16).slice(1);
+        }
+    }
+
+    const getLX = (r, c) => (c * RADIUS * 2) + RADIUS + (r % 2 ? RADIUS : 0) + (LOGICAL_WIDTH - COLS * RADIUS * 2) / 2;
+    const getLY = (r) => r * (RADIUS * 1.7) + RADIUS + 40;
+
+    function renderMap() {
+        const gridEl = document.getElementById('levels-grid');
+        gridEl.innerHTML = '';
+        for (let i = 1; i <= 12; i++) {
+            const div = document.createElement('div');
+            div.innerText = i;
+            div.className = `level-node ${i < unlockedLevel ? 'completed' : i === unlockedLevel ? 'unlocked' : 'locked'}`;
+            if (i <= unlockedLevel) div.onclick = () => startGame(i);
+            gridEl.appendChild(div);
+        }
+    }
+
+    function startGame(lvl) {
+        AudioEngine.init();
+        currentLevel = lvl; score = 0; isShooting = false; fallingBubbles = [];
+        document.getElementById('ui-current-lvl').innerText = lvl;
+        document.getElementById('ui-score').innerText = '0';
+        document.getElementById('map-screen').classList.add('hidden');
+        document.getElementById('win-screen').classList.add('hidden');
+        document.getElementById('lose-screen').classList.add('hidden');
+        initLevelData(lvl);
+        gameState = 'PLAYING';
+    }
+
+    function initLevelData(lvl) {
+        grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+        const rowsToFill = Math.min(4 + Math.floor(lvl/2), 10);
+        const symbols = CRYPTO_CONFIG.map(c => c.symbol);
+        for (let r = 0; r < rowsToFill; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (r % 2 !== 0 && c === COLS - 1) continue;
+                grid[r][c] = new Bubble(getLX(r, c), getLY(r), symbols[Math.floor(Math.random() * symbols.length)]);
+            }
+        }
+        nextSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+        spawnShot();
+    }
+
+    function spawnShot() {
+        const activeTypes = [...new Set(grid.flat().filter(f => f).map(f => f.type))];
+        
+        if (activeTypes.length === 0 && fallingBubbles.length === 0) {
+            winGame();
+            return;
+        }
+
+        currentBubble = new Bubble(LOGICAL_WIDTH/2, LOGICAL_HEIGHT - 80, nextSymbol);
+        const nextImgTypes = activeTypes.length > 0 ? activeTypes : CRYPTO_CONFIG.map(c => c.symbol);
+        nextSymbol = nextImgTypes[Math.floor(Math.random() * nextImgTypes.length)];
+        if (imageCache[nextSymbol]) document.getElementById('next-crypto-img').src = imageCache[nextSymbol].src;
+        isShooting = false;
+    }
+
+    function swapBubbles() {
+        if (isShooting || gameState !== 'PLAYING') return;
+        AudioEngine.swap();
+        const temp = currentBubble.type;
+        currentBubble = new Bubble(currentBubble.x, currentBubble.y, nextSymbol);
+        nextSymbol = temp;
+        if (imageCache[nextSymbol]) document.getElementById('next-crypto-img').src = imageCache[nextSymbol].src;
+    }
+
+    function getNeighbors(r, c) {
+        const neighbors = [];
+        const offsets = r % 2 === 0 ? [[-1, -1], [-1, 0], [0, -1], [0, 1], [1, -1], [1, 0]] : [[-1, 0], [-1, 1], [0, -1], [0, 1], [1, 0], [1, 1]];
+        for (const [dr, dc] of offsets) {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) neighbors.push([nr, nc]);
+        }
+        return neighbors;
+    }
+
+    function triggerImpact() {
+        let bestR = -1, bestC = -1, minDist = Infinity;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (r % 2 !== 0 && c === COLS - 1) continue;
+                if (grid[r][c]) continue;
+                const d = Math.hypot(currentBubble.x - getLX(r, c), currentBubble.y - getLY(r));
+                if (d < minDist) { minDist = d; bestR = r; bestC = c; }
+            }
+        }
+        
+        if (bestR === -1) {
+            currentBubble = null;
+            spawnShot();
+            return;
+        }
+
+        const type = currentBubble.type;
+        grid[bestR][bestC] = new Bubble(getLX(bestR, bestC), getLY(bestR), type);
+        currentBubble = null;
+
+        const matches = [];
+        const queue = [[bestR, bestC]];
+        const visited = new Set([`${bestR},${bestC}`]);
+
+        while(queue.length > 0) {
+            const [currR, currC] = queue.shift();
+            if (grid[currR][currC].type === type) {
+                matches.push([currR, currC]);
+                getNeighbors(currR, currC).forEach(([nr, nc]) => {
+                    if (!visited.has(`${nr},${nc}`) && grid[nr][nc] && grid[nr][nc].type === type) {
+                        visited.add(`${nr},${nc}`); queue.push([nr, nc]);
+                    }
+                });
+            }
+        }
+
+        if (matches.length >= 3) {
+            matches.forEach(([r, c], i) => {
+                setTimeout(() => { grid[r][c] = null; AudioEngine.match(); }, i * 40);
+            });
+            score += matches.length * 10;
+            
+            setTimeout(() => {
+                const connected = new Set();
+                const rootQ = [];
+                for (let c = 0; c < COLS; c++) if (grid[0][c]) { connected.add(`0,${c}`); rootQ.push([0, c]); }
+                while (rootQ.length > 0) {
+                    const [r, c] = rootQ.shift();
+                    getNeighbors(r, c).forEach(([nr, nc]) => {
+                        if (!connected.has(`${nr},${nc}`) && grid[nr][nc]) {
+                            connected.add(`${nr},${nc}`); rootQ.push([nr, nc]);
+                        }
+                    });
+                }
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        if (grid[r][c] && !connected.has(`${r},${c}`)) {
+                            const b = grid[r][c]; 
+                            b.vy = 2; 
+                            b.vx = (Math.random() - 0.5) * 4;
+                            fallingBubbles.push(b); 
+                            grid[r][c] = null;
+                            score += 20; AudioEngine.pop();
+                        }
+                    }
+                }
+                document.getElementById('ui-score').innerText = score;
+                spawnShot();
+            }, matches.length * 45);
+        } else {
+            AudioEngine.impact();
+            if (bestR >= ROWS - 2) {
+                gameState = 'LOSE';
+                document.getElementById('lose-screen').classList.remove('hidden');
+                AudioEngine.lose();
+            } else {
+                spawnShot();
+            }
+        }
+    }
+
+    function winGame() {
+        if (gameState !== 'PLAYING') return;
+        gameState = 'WIN';
+        if (currentLevel === unlockedLevel && unlockedLevel < 12) {
+            unlockedLevel++;
+            localStorage.setItem('crypto_shooter_lvl', unlockedLevel);
+        }
+        
+        const nextBtn = document.getElementById('next-lvl-btn');
+        if (currentLevel >= 12) {
+            nextBtn.classList.add('hidden');
+        } else {
+            nextBtn.classList.remove('hidden');
+        }
+        
+        document.getElementById('win-screen').classList.remove('hidden');
+        AudioEngine.win();
+    }
+
+    function nextLevel() {
+        if (currentLevel < 12) {
+            startGame(currentLevel + 1);
+        } else {
+            backToMap();
+        }
+    }
+
+    function update() {
+        smoothAimAngle += (rawAimAngle - smoothAimAngle) * 0.15;
+        
+        for (let i = fallingBubbles.length - 1; i >= 0; i--) {
+            const b = fallingBubbles[i];
+            b.vy += 0.8;
+            b.x += b.vx;
+            b.y += b.vy;
+
+            if (b.y + RADIUS > LOGICAL_HEIGHT) {
+                b.y = LOGICAL_HEIGHT - RADIUS;
+                b.vy *= -0.5;
+                b.vx *= 0.8;
+                if (Math.abs(b.vy) > 1) AudioEngine.impact();
+            }
+            
+            if (b.x < RADIUS || b.x > LOGICAL_WIDTH - RADIUS) {
+                b.vx *= -1;
+                b.x = Math.max(RADIUS, Math.min(LOGICAL_WIDTH - RADIUS, b.x));
+            }
+
+            if (Math.abs(b.vy) < 0.5 && b.y > LOGICAL_HEIGHT - RADIUS - 5) {
+                fallingBubbles.splice(i, 1);
+                if (grid.flat().filter(v => v).length === 0 && fallingBubbles.length === 0 && !isShooting) {
+                    winGame();
+                }
+            }
+        }
+
+        if (gameState !== 'PLAYING') return;
+        if (isShooting && currentBubble) {
+            const SUBSTEPS = 8;
+            for(let i=0; i<SUBSTEPS; i++) {
+                currentBubble.x += currentBubble.vx / SUBSTEPS;
+                currentBubble.y += currentBubble.vy / SUBSTEPS;
+                if (currentBubble.x < RADIUS || currentBubble.x > LOGICAL_WIDTH - RADIUS) {
+                    currentBubble.vx *= -1;
+                    currentBubble.x = Math.max(RADIUS, Math.min(LOGICAL_WIDTH - RADIUS, currentBubble.x));
+                }
+                if (currentBubble.y < RADIUS + 15) { triggerImpact(); return; }
+                let hit = false;
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        if (grid[r][c] && Math.hypot(currentBubble.x - getLX(r, c), currentBubble.y - getLY(r)) < RADIUS * 1.6) {
+                            hit = true; break;
+                        }
+                    }
+                    if (hit) break;
+                }
+                if (hit) { triggerImpact(); return; }
+            }
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (gameState === 'MAP') return;
+        const rect = canvas.getBoundingClientRect();
+        const scX = rect.width / LOGICAL_WIDTH;
+        const scY = rect.height / LOGICAL_HEIGHT;
+
+        if (isDragging && !isShooting) {
+            ctx.setLineDash([4, 12]);
+            ctx.strokeStyle = "rgba(240, 185, 11, 0.3)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            let bX = currentBubble.x, bY = currentBubble.y;
+            let dX = Math.cos(smoothAimAngle), dY = Math.sin(smoothAimAngle);
+            ctx.moveTo(bX * scX, bY * scY);
+            for(let i=0; i<30; i++) {
+                bX += dX * 20; bY += dY * 20;
+                if (bX < RADIUS || bX > LOGICAL_WIDTH - RADIUS) dX *= -1;
+                ctx.lineTo(bX * scX, bY * scY);
+                if (bY < 40) break;
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        grid.flat().forEach(b => b && b.draw(scX, scY));
+        fallingBubbles.forEach(b => b.draw(scX, scY));
+        if (currentBubble && gameState === 'PLAYING') currentBubble.draw(scX, scY);
+    }
+
+    const getRel = (ex, ey) => {
+        const rect = canvas.getBoundingClientRect();
+        return { x: (ex - rect.left) * (LOGICAL_WIDTH / rect.width), y: (ey - rect.top) * (LOGICAL_HEIGHT / rect.height) };
+    };
+    const start = (e) => {
+        if (gameState !== 'PLAYING' || isShooting) return;
+        isDragging = true;
+        const p = getRel(e.touches ? e.touches[0].clientX : e.clientX, e.touches ? e.touches[0].clientY : e.clientY);
+        rawAimAngle = Math.atan2(p.y - currentBubble.y, p.x - currentBubble.x);
+    };
+    const move = (e) => {
+        if (!isDragging) return;
+        const p = getRel(e.touches ? e.touches[0].clientX : e.clientX, e.touches ? e.touches[0].clientY : e.clientY);
+        rawAimAngle = Math.atan2(p.y - currentBubble.y, p.x - currentBubble.x);
+        rawAimAngle = Math.max(-Math.PI + 0.15, Math.min(-0.15, rawAimAngle));
+    };
+    const end = () => {
+        if (!isDragging) return;
+        isDragging = false; isShooting = true;
+        currentBubble.vx = Math.cos(smoothAimAngle) * 22;
+        currentBubble.vy = Math.sin(smoothAimAngle) * 22;
+        AudioEngine.shoot();
+    };
+
+    canvas.addEventListener('mousedown', start);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e); }, {passive:false});
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); move(e); }, {passive:false});
+    canvas.addEventListener('touchend', end);
+
+    function backToMap() { 
+        gameState = 'MAP'; 
+        document.getElementById('win-screen').classList.add('hidden');
+        document.getElementById('lose-screen').classList.add('hidden');
+        document.getElementById('map-screen').classList.remove('hidden'); 
+        renderMap(); 
+    }
+    
+    function retryLevel() { startGame(currentLevel); }
+    function resetProgress() { localStorage.setItem('crypto_shooter_lvl', 1); unlockedLevel = 1; renderMap(); }
+
+    function loop() { update(); draw(); requestAnimationFrame(loop); }
+    loadLogos();
+    loop();
+</script>
+</body>
+</html>
